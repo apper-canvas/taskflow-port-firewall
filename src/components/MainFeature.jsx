@@ -182,18 +182,14 @@ const MainFeature = () => {
   
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'Completed': 
-        const CompletedIcon = getIcon('CheckCircle');
-        return <CompletedIcon className="text-green-500" size={18} />;
-      case 'In Progress': 
-        const ProgressIcon = getIcon('Clock');
-        return <ProgressIcon className="text-blue-500" size={18} />;
-      case 'Not Started': 
-        const NotStartedIcon = getIcon('Circle');
-        return <NotStartedIcon className="text-gray-400" size={18} />;
-      default: 
-        const DefaultIcon = getIcon('Circle');
-        return <DefaultIcon className="text-gray-400" size={18} />;
+      case 'Completed':
+        return <CheckCircleIcon className="text-green-500" size={18} />;
+      case 'In Progress':
+        return <ClockIcon className="text-blue-500" size={18} />;
+      case 'Not Started':
+        return <CircleIcon className="text-gray-400" size={18} />;
+      default:
+        return <CircleIcon className="text-gray-400" size={18} />;
     }
   };
 
