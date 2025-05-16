@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import { getIcon } from '../utils/iconUtils';
+import { addTask, updateTask, deleteTask, setFilters } from '../features/taskSlice';
+import RecurrenceSelector from './RecurrenceSelector';
 
 const MainFeature = () => {
   // Initial task data
@@ -37,35 +40,35 @@ const MainFeature = () => {
   ];
 
   // States for task management
-  const [tasks, setTasks] = useState(() => {
-    const savedTasks = localStorage.getItem('tasks');
-    return savedTasks ? JSON.parse(savedTasks) : initialTasks;
-  });
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [activePriority, setActivePriority] = useState('all');
+  const dispatch = useDispatch();
+  const { tasks, activeFilter, activePriority } = useSelector(state => state.tasks);
+  
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
     status: 'Not Started',
     priority: 'Medium',
     dueDate: new Date(),
-    project: 'Work'
+    project: 'Work',
+    recurrence: null
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-
-  // Save tasks to localStorage when updated
-  useEffect(() => {
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-  }, [tasks]);
+  const [showRecurrenceOptions, setShowRecurrenceOptions] = useState(false);
 
   // Filter tasks based on active filters
   const getFilteredTasks = () => {
-    return tasks.filter(task => {
+    const filtered = tasks.filter(task => {
       const statusMatch = activeFilter === 'all' || task.status === activeFilter;
       const priorityMatch = activePriority === 'all' || task.priority === activePriority;
       return statusMatch && priorityMatch;
     });
+    
+    const task = {
+      ...newTask,
+      id: Date.now().toString(),
+      dueDate: new Date(newTask.dueDate)
+    };
   };
 
   // Handlers for task CRUD operations
@@ -77,31 +80,33 @@ const MainFeature = () => {
       return;
     }
     
-    const task = {
+    dispatch(addTask({
       ...newTask,
-      id: Date.now().toString(),
       dueDate: new Date(newTask.dueDate)
-    };
+    }));
     
-    setTasks(prev => [...prev, task]);
     setNewTask({
       title: '',
       description: '',
       status: 'Not Started',
       priority: 'Medium',
       dueDate: new Date(),
-      project: 'Work'
+      project: 'Work',
+      recurrence: null
     });
     setIsModalOpen(false);
-    toast.success("Task added successfully!");
+    setShowRecurrenceOptions(false);
+    toast.success(`Task ${newTask.recurrence ? 'and its recurrences ' : ''}added successfully!`);
   };
 
   const handleEditTask = (task) => {
     setEditingTask({
       ...task,
-      dueDate: task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate)
+      dueDate: task.dueDate instanceof Date ? task.dueDate : new Date(task.dueDate),
+      recurrence: task.recurrence // Preserve recurrence settings
     });
     setIsModalOpen(true);
+    setShowRecurrenceOptions(!!task.recurrence);
   };
 
   const handleUpdateTask = (e) => {
@@ -112,30 +117,40 @@ const MainFeature = () => {
       return;
     }
     
-    setTasks(prev => 
-      prev.map(task => 
-        task.id === editingTask.id ? editingTask : task
-      )
-    );
+    dispatch(updateTask({
+      id: editingTask.id,
+      updates: {
+        ...editingTask,
+        dueDate: new Date(editingTask.dueDate)
+      }
+    }));
     
     setEditingTask(null);
     setIsModalOpen(false);
-    toast.success("Task updated successfully!");
+    setShowRecurrenceOptions(false);
+    toast.success(`Task ${editingTask.recurrence ? 'and its recurrences ' : ''}updated successfully!`);
   };
 
-  const handleDeleteTask = (id) => {
-    setTasks(prev => prev.filter(task => task.id !== id));
-    toast.success("Task deleted successfully!");
+  const handleDeleteTask = (id, isRecurring = false) => {
+    if (isRecurring) {
+      if (confirm("Delete just this instance or all recurring instances?")) {
+        dispatch(deleteTask({ id, deleteAll: true }));
+        toast.success("All recurring task instances deleted successfully!");
+      } else {
+        dispatch(deleteTask({ id, deleteAll: false }));
+        toast.success("Task instance deleted successfully!");
+      }
+    } else {
+      dispatch(deleteTask({ id, deleteAll: false }));
+      toast.success("Task deleted successfully!");
+    }
   };
 
   const handleStatusChange = (taskId, newStatus) => {
-    setTasks(prev => 
-      prev.map(task => 
-        task.id === taskId 
-          ? { ...task, status: newStatus } 
-          : task
-      )
-    );
+    dispatch(updateTask({
+      id: taskId,
+      updates: { status: newStatus }
+    }));
     
     if (newStatus === 'Completed') {
       toast.success("Task completed! Great job!");
@@ -156,6 +171,8 @@ const MainFeature = () => {
   const AlertCircleIcon = getIcon('AlertCircle');
   const TagIcon = getIcon('Tag');
   const ClipboardIcon = getIcon('Clipboard');
+  const RepeatIcon = getIcon('Repeat');
+  const RefreshCwIcon = getIcon('RefreshCw');
   
   // Get priority or status color
   const getPriorityColor = (priority) => {
@@ -248,6 +265,16 @@ const MainFeature = () => {
   ];
 
   const filteredTasks = getFilteredTasks();
+  
+  const handleSetRecurrence = (recurrenceSettings) => {
+    if (editingTask) {
+      setEditingTask(prev => ({ ...prev, recurrence: recurrenceSettings }));
+    } else {
+      setNewTask(prev => ({ ...prev, recurrence: recurrenceSettings }));
+    }
+  };
+  
+  const handleFilterChange = (type, value) => dispatch(setFilters({ [type]: value }));
 
   return (
     <div className="bg-white dark:bg-surface-800 rounded-xl shadow-card p-6">
@@ -285,7 +312,7 @@ const MainFeature = () => {
               {statusFilters.map(filter => (
                 <button
                   key={filter.id}
-                  onClick={() => setActiveFilter(filter.id)}
+                  onClick={() => handleFilterChange('status', filter.id)}
                   className={`px-3 py-1.5 text-sm rounded-full transition-all ${
                     activeFilter === filter.id
                       ? 'bg-primary text-white shadow-sm'
@@ -304,7 +331,7 @@ const MainFeature = () => {
               {priorityFilters.map(filter => (
                 <button
                   key={filter.id}
-                  onClick={() => setActivePriority(filter.id)}
+                  onClick={() => handleFilterChange('priority', filter.id)}
                   className={`px-3 py-1.5 text-sm rounded-full transition-all ${
                     activePriority === filter.id
                       ? 'bg-primary text-white shadow-sm'
@@ -393,6 +420,14 @@ const MainFeature = () => {
                           <div className="flex items-center gap-1 text-surface-500 dark:text-surface-400">
                             <CalendarIcon size={14} />
                             <span>{formatDate(task.dueDate)}</span>
+                            
+                            {/* Recurring task indicator */}
+                            {task.recurrence && (
+                              <div className="flex items-center ml-2 text-primary" title="Recurring task">
+                                <RefreshCwIcon size={14} />
+                              </div>
+                            )}
+                            
                           </div>
                           
                           <div className={`task-tag ${getPriorityColor(task.priority)}`}>
@@ -419,7 +454,7 @@ const MainFeature = () => {
                     </button>
                     
                     <button 
-                      onClick={() => handleDeleteTask(task.id)}
+                      onClick={() => handleDeleteTask(task.id, !!task.recurrence)}
                       className="p-2 rounded-full hover:bg-surface-100 dark:hover:bg-surface-700"
                       aria-label="Delete task"
                     >
@@ -469,6 +504,28 @@ const MainFeature = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">
+                        <div className="flex items-center justify-between">
+                          <span>
+                            Recurring Task
+                          </span>
+                          <button type="button" onClick={() => setShowRecurrenceOptions(!showRecurrenceOptions)} className="text-primary text-sm">
+                            {showRecurrenceOptions ? 'Hide options' : 'Show options'}
+                          </button>
+                        </div>
+                        {showRecurrenceOptions && (
+                          <div className="mt-3 p-4 bg-surface-50 dark:bg-surface-700 rounded-lg">
+                            <RecurrenceSelector 
+                              recurrence={editingTask ? editingTask.recurrence : newTask.recurrence}
+                              onChange={handleSetRecurrence}
+                              taskDueDate={editingTask ? editingTask.dueDate : newTask.dueDate}
+                            />
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
                       Task Title <span className="text-accent">*</span>
                     </label>
                     <input
