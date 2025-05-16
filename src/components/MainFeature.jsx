@@ -4,44 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import { getIcon } from '../utils/iconUtils';
-import { addTask, updateTask, deleteTask, setFilters } from '../features/taskSlice';
+import { addTask, updateTask, deleteTask, setFilters, setTasks, setLoading, setError } from '../features/taskSlice';
 import RecurrenceSelector from './RecurrenceSelector';
+import { fetchTasks, createTask, updateTask as apiUpdateTask, deleteTask as apiDeleteTask } from '../services/taskService';
 
 const MainFeature = () => {
-  // Initial task data
-  const initialTasks = [
-    {
-      id: '1',
-      title: 'Complete project proposal',
-      description: 'Write up the proposal for the new client project',
-      status: 'In Progress',
-      priority: 'High',
-      dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      project: 'Work'
-    },
-    {
-      id: '2',
-      title: 'Buy groceries',
-      description: 'Get milk, eggs, bread, and vegetables',
-      status: 'Not Started',
-      priority: 'Medium', 
-      dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
-      project: 'Personal'
-    },
-    {
-      id: '3',
-      title: 'Schedule team meeting',
-      description: 'Arrange weekly sync for project updates',
-      status: 'Completed',
-      priority: 'Low',
-      dueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-      project: 'Work'
-    }
-  ];
-
   // States for task management
   const dispatch = useDispatch();
-  const { tasks, activeFilter, activePriority } = useSelector(state => state.tasks);
+  const { tasks, activeFilter, activePriority, isLoading, error } = useSelector(state => state.tasks);
   
   const [newTask, setNewTask] = useState({
     title: '',
@@ -55,6 +25,24 @@ const MainFeature = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [showRecurrenceOptions, setShowRecurrenceOptions] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load tasks from API on component mount
+  useEffect(() => {
+    const loadTasks = async () => {
+      dispatch(setLoading(true));
+      try {
+        const { tasks } = await fetchTasks();
+        dispatch(setTasks(tasks));
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+        dispatch(setError(error.message || 'Failed to load tasks'));
+        toast.error('Failed to load tasks. Please try again.');
+      }
+    };
+    
+    loadTasks();
+  }, [dispatch]);
 
   // Filter tasks based on active filters
   const getFilteredTasks = () => {
@@ -68,7 +56,7 @@ const MainFeature = () => {
   const filteredTasks = getFilteredTasks();
 
   // Handlers for task CRUD operations
-  const handleAddTask = (e) => {
+  const handleAddTask = async (e) => {
     e.preventDefault();
     
     if (!newTask.title.trim()) {
@@ -76,23 +64,34 @@ const MainFeature = () => {
       return;
     }
     
-    dispatch(addTask({
-      ...newTask,
-      dueDate: new Date(newTask.dueDate)
-    }));
-    
-    setNewTask({
-      title: '',
-      description: '',
-      status: 'Not Started',
-      priority: 'Medium',
-      dueDate: new Date(),
-      project: 'Work',
-      recurrence: null
-    });
-    setIsModalOpen(false);
-    setShowRecurrenceOptions(false);
-    toast.success(`Task ${newTask.recurrence ? 'and its recurrences ' : ''}added successfully!`);
+    setIsSubmitting(true);
+    try {
+      const taskToCreate = {
+        ...newTask,
+        dueDate: new Date(newTask.dueDate)
+      };
+      
+      const createdTask = await createTask(taskToCreate);
+      dispatch(addTask(createdTask));
+      
+      setNewTask({
+        title: '',
+        description: '',
+        status: 'Not Started',
+        priority: 'Medium',
+        dueDate: new Date(),
+        project: 'Work',
+        recurrence: null
+      });
+      setIsModalOpen(false);
+      setShowRecurrenceOptions(false);
+      toast.success(`Task ${newTask.recurrence ? 'and its recurrences ' : ''}added successfully!`);
+    } catch (error) {
+      console.error('Error creating task:', error);
+      toast.error(error.message || 'Failed to create task');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditTask = (task) => {
@@ -105,7 +104,7 @@ const MainFeature = () => {
     setShowRecurrenceOptions(!!task.recurrence);
   };
 
-  const handleUpdateTask = (e) => {
+  const handleUpdateTask = async (e) => {
     e.preventDefault();
     
     if (!editingTask.title.trim()) {
@@ -113,43 +112,85 @@ const MainFeature = () => {
       return;
     }
     
-    dispatch(updateTask({
-      id: editingTask.id,
-      updates: {
+    setIsSubmitting(true);
+    try {
+      const updates = {
         ...editingTask,
         dueDate: new Date(editingTask.dueDate)
-      }
-    }));
-    
-    setEditingTask(null);
-    setIsModalOpen(false);
-    setShowRecurrenceOptions(false);
+      };
+      
+      const updatedTask = await apiUpdateTask(editingTask.id, updates);
+      
+      dispatch(updateTask({
+        id: editingTask.id,
+        updates: updatedTask
+      }));
+      
+      setEditingTask(null);
+      setIsModalOpen(false);
+      setShowRecurrenceOptions(false);
+      toast.success(`Task ${editingTask.recurrence ? 'and its recurrences ' : ''}updated successfully!`);
+    } catch (error) {
+      toast.error(error.message || 'Failed to update task');
+    } finally {
+      setIsSubmitting(false);
     toast.success(`Task ${editingTask.recurrence ? 'and its recurrences ' : ''}updated successfully!`);
   };
 
   const handleDeleteTask = (id, isRecurring = false) => {
     if (isRecurring) {
-      if (confirm("Delete just this instance or all recurring instances?")) {
-        dispatch(deleteTask({ id, deleteAll: true }));
-        toast.success("All recurring task instances deleted successfully!");
+        // Delete all recurring instances
+        apiDeleteTask(id).then(() => {
+          dispatch(deleteTask({ id, deleteAll: true }));
+          toast.success("All recurring task instances deleted successfully!");
+        }).catch(error => {
+          console.error('Error deleting recurring tasks:', error);
+          toast.error(error.message || 'Failed to delete recurring tasks');
+        });
       } else {
-        dispatch(deleteTask({ id, deleteAll: false }));
-        toast.success("Task instance deleted successfully!");
+        // Delete just this instance
+        apiDeleteTask(id).then(() => {
+          dispatch(deleteTask({ id, deleteAll: false }));
+          toast.success("Task instance deleted successfully!");
+        }).catch(error => {
+          console.error('Error deleting task instance:', error);
+          toast.error(error.message || 'Failed to delete task instance');
+        });
       }
     } else {
-      dispatch(deleteTask({ id, deleteAll: false }));
+      // Delete non-recurring task
+      apiDeleteTask(id).then(() => {
+      if (confirm("Delete just this instance or all recurring instances?")) {
+        toast.success("Task deleted successfully!");
+      }).catch(error => {
+        console.error('Error deleting task:', error);
+        toast.error(error.message || 'Failed to delete task');
+      });
       toast.success("Task deleted successfully!");
     }
-  };
-
-  const handleStatusChange = (taskId, newStatus) => {
-    dispatch(updateTask({
-      id: taskId,
-      updates: { status: newStatus }
-    }));
-    
-    if (newStatus === 'Completed') {
-      toast.success("Task completed! Great job!");
+  const handleStatusChange = async (taskId, newStatus) => {
+    try {
+      const taskToUpdate = tasks.find(t => t.id === taskId);
+      if (!taskToUpdate) return;
+      
+      const updatedTask = await apiUpdateTask(taskId, { 
+        ...taskToUpdate,
+        status: newStatus 
+      });
+      
+      dispatch(updateTask({
+        id: taskId,
+        updates: updatedTask
+      }));
+      
+      if (newStatus === 'Completed') {
+        toast.success("Task completed! Great job!");
+      } else {
+        toast.info(`Task status updated to ${newStatus}`);
+      }
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast.error(error.message || 'Failed to update task status');
     } else {
       toast.info(`Task status updated to ${newStatus}`);
     }
@@ -161,6 +202,7 @@ const MainFeature = () => {
   const TrashIcon = getIcon('Trash');
   const CalendarIcon = getIcon('Calendar');
   const CheckCircleIcon = getIcon('CheckCircle');
+  const ClockIcon = getIcon('Clock');
   const CircleIcon = getIcon('Circle');
   const XIcon = getIcon('X');
   const ArrowRightIcon = getIcon('ArrowRight');
@@ -338,7 +380,18 @@ const MainFeature = () => {
       
       {/* Task List */}
       <div className="mt-6">
-        {filteredTasks.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-10">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-surface-600 dark:text-surface-400">Loading tasks...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-10 text-red-500">
+            <AlertCircleIcon size={40} className="mx-auto mb-4" />
+            <p>{error}</p>
+            <button onClick={() => window.location.reload()} className="btn btn-primary mt-4">Retry</button>
+          </div>
+        ) : filteredTasks.length === 0 ? (
           <div className="text-center py-10">
             <motion.div 
               initial={{ scale: 0.8, opacity: 0 }}
@@ -648,9 +701,10 @@ const MainFeature = () => {
                   
                   <button
                     type="submit"
-                    className="btn btn-primary flex items-center gap-2"
+                    className="btn btn-primary flex items-center gap-2 relative"
+                    disabled={isSubmitting}
                   >
-                    {editingTask ? 'Update Task' : 'Add Task'}
+                    {isSubmitting ? 'Saving...' : editingTask ? 'Update Task' : 'Add Task'}
                     <ArrowRightIcon size={18} />
                   </button>
                 </div>

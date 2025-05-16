@@ -1,23 +1,72 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { getIcon } from '../utils/iconUtils';
 import MainFeature from '../components/MainFeature';
+import { AuthContext } from '../App';
+import { fetchTasks } from '../services/taskService';
 
 const Home = () => {
   const [showWelcome, setShowWelcome] = useState(true);
-  const [user, setUser] = useState({ name: "User" });
+  const [taskStats, setTaskStats] = useState({
+    total: 0,
+    completed: 0,
+    inProgress: 0,
+    notStarted: 0,
+    dueSoon: 0
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { logout } = useContext(AuthContext);
+  const { user } = useSelector((state) => state.user);
   
   const CheckCircleIcon = getIcon('CheckCircle');
   const LayoutDashboardIcon = getIcon('LayoutDashboard');
   const ListChecksIcon = getIcon('ListChecks');
   const BellIcon = getIcon('Bell');
   const BarChartIcon = getIcon('BarChart');
-  
+  const LogOutIcon = getIcon('LogOut');
+
+  // Load task statistics
   useEffect(() => {
+    const getTaskStats = async () => {
+      setIsLoading(true);
+      try {
+        const { tasks } = await fetchTasks();
+        
+        const now = new Date();
+        const oneWeekFromNow = new Date();
+        oneWeekFromNow.setDate(now.getDate() + 7);
+        
+        const completed = tasks.filter(task => task.status === 'Completed').length;
+        const inProgress = tasks.filter(task => task.status === 'In Progress').length;
+        const notStarted = tasks.filter(task => task.status === 'Not Started').length;
+        const dueSoon = tasks.filter(task => {
+          const dueDate = new Date(task.dueDate);
+          return dueDate >= now && dueDate <= oneWeekFromNow;
+        }).length;
+        
+        setTaskStats({
+          total: tasks.length,
+          completed,
+          inProgress,
+          notStarted,
+          dueSoon
+        });
+      } catch (error) {
+        console.error('Error fetching task stats:', error);
+        toast.error('Failed to load task statistics');
+      } finally {
+        setIsLoading(false);
+        setShowWelcome(false); // Show welcome for a moment while tasks load
+      }
+    };
+    
+    // Instead of a static timeout, load data and then hide welcome screen
     const timer = setTimeout(() => {
-      setShowWelcome(false);
-    }, 3000);
+      getTaskStats();
+    }, 1500); // Still show welcome for a brief moment
     
     return () => clearTimeout(timer);
   }, []);
@@ -80,8 +129,15 @@ const Home = () => {
             <button className="btn btn-ghost p-2 rounded-full">
               <BellIcon size={20} />
             </button>
+            <button 
+              className="btn btn-ghost p-2 rounded-full" 
+              onClick={logout}
+              title="Logout"
+            >
+              <LogOutIcon size={20} />
+            </button>
             <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
-              {user.name.charAt(0)}
+              {user?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
             </div>
           </div>
         </div>
@@ -122,15 +178,15 @@ const Home = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-surface-600 dark:text-surface-300">Completed</span>
-                  <span className="font-medium">12</span>
+                  <span className="font-medium">{taskStats.completed}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-surface-600 dark:text-surface-300">In Progress</span>
-                  <span className="font-medium">5</span>
+                  <span className="font-medium">{taskStats.inProgress}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-surface-600 dark:text-surface-300">Pending</span>
-                  <span className="font-medium">8</span>
+                  <span className="text-surface-600 dark:text-surface-300">Not Started</span>
+                  <span className="font-medium">{taskStats.notStarted}</span>
                 </div>
               </div>
             </div>
@@ -144,21 +200,21 @@ const Home = () => {
             initial="hidden"
             animate="visible"
             className="space-y-6"
-          >
+                <h2 className="text-2xl font-bold mb-1">Welcome back, {user?.firstName || 'there'}!</h2>
             <motion.div variants={itemVariants}>
-              <div className="bg-white dark:bg-surface-800 rounded-xl shadow-card p-6">
+                  You have {taskStats.inProgress} tasks in progress and {taskStats.dueSoon} due soon
                 <h2 className="text-2xl font-bold mb-1">Welcome back, {user.name}!</h2>
                 <p className="text-surface-600 dark:text-surface-300 mb-4">
                   You have 5 tasks in progress and 3 due today
-                </p>
+                    <h3 className="text-lg font-medium mb-1">{taskStats.total}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                   <div className="card-neu bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10">
                     <h3 className="text-lg font-medium mb-1">25</h3>
-                    <p className="text-sm text-surface-600 dark:text-surface-300">Total Tasks</p>
+                    <h3 className="text-lg font-medium mb-1">{taskStats.completed}</h3>
                   </div>
                   <div className="card-neu bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-800/10">
                     <h3 className="text-lg font-medium mb-1">12</h3>
-                    <p className="text-sm text-surface-600 dark:text-surface-300">Completed</p>
+                    <h3 className="text-lg font-medium mb-1">{taskStats.dueSoon}</h3>
                   </div>
                   <div className="card-neu bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/20 dark:to-amber-800/10">
                     <h3 className="text-lg font-medium mb-1">8</h3>
