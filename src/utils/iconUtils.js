@@ -1,7 +1,38 @@
-import * as Icons from 'lucide-react';
+import { 
+  CheckCircle, 
+  LayoutDashboard, 
+  ListChecks, 
+  Bell, 
+  BarChart, 
+  LogOut,
+  Sun,
+  Moon,
+  Calendar,
+  Clock,
+  RepeatIcon,
+  AlertCircle
+} from 'lucide-react';
 
-export const getIcon = (iconName) => {
-  return (Icons[iconName] && typeof Icons[iconName] === 'function') 
-    ? Icons[iconName] 
-    : Icons.Info;
-};
+/**
+ * Get the icon component by name
+ * @param {string} name - The name of the icon
+ * @returns {Component} - React component for the icon
+ */
+export function getIcon(name) {
+  const icons = {
+    CheckCircle,
+    LayoutDashboard,
+    ListChecks,
+    Bell,
+    BarChart,
+    LogOut,
+    Sun,
+    Moon,
+    Calendar,
+    Clock,
+    Repeat: RepeatIcon,
+    AlertCircle
+  };
+  
+  return icons[name] || null;
+}

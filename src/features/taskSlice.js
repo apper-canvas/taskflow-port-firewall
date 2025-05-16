@@ -42,7 +42,7 @@ const taskSlice = createSlice({
       state.tasks.push(newTask);
       
       // If task is recurring, generate instances
-      if (newTask.recurrence) {
+      if (newTask.isRecurring) {
         const instances = generateRecurringInstances(newTask);
         instances.forEach(instance => {
           // Don't duplicate the first instance
@@ -51,44 +51,19 @@ const taskSlice = createSlice({
           }
         });
       }
-          state.tasks[taskIndex] = updates;
+    },
+    
+    // Update a task (local state update after API call)
+    updateTask: (state, action) => {
       const { id, updates } = action.payload;
       const taskIndex = state.tasks.findIndex(task => task.id === id);
       
       if (taskIndex !== -1) {
-        // Check if this is a recurring task
         const originalTask = state.tasks[taskIndex];
-        const isRecurring = originalTask.recurrence || updates.recurrence;
-        // If recurrence settings changed, we need to handle differently
-        if (JSON.stringify(originalTask.recurrence) !== JSON.stringify(updates.recurrence)) {
-          state.tasks[taskIndex] = updates;
-          if (originalTask.recurrence) {
-              task.recurrence.parentId !== originalParentId ||
-              task.id === id // Keep the task being updated
-    
-    // Delete a task (local state update after API call)
-            );
-          }
-          
-          // Update the task itself
-          state.tasks[taskIndex] = { ...originalTask, ...updates };
-          
-          // Generate new instances if still recurring
-      } else if (taskToDelete) {
-            const updatedTask = state.tasks[taskIndex];
-            const instances = generateRecurringInstances(updatedTask);
-            instances.forEach(instance => {
-            });
-          }
-        } else {
-          // Simple update if recurrence hasn't changed
-          state.tasks[taskIndex] = { ...originalTask, ...updates };
-        }
-        
-        // Save to localStorage
-        localStorage.setItem('tasks', JSON.stringify(state.tasks));
+        state.tasks[taskIndex] = { ...originalTask, ...updates };
       }
-export const { setLoading, setError, setTasks, addTask, updateTask, deleteTask, setFilters } = taskSlice.actions;
+    },
+    
     deleteTask: (state, action) => {
       const { id, deleteAll } = action.payload;
       const taskToDelete = state.tasks.find(task => task.id === id);
@@ -103,10 +78,8 @@ export const { setLoading, setError, setTasks, addTask, updateTask, deleteTask, 
         // Delete just this task
         state.tasks = state.tasks.filter(task => task.id !== id);
       }
-      
-      // Save to localStorage
-      localStorage.setItem('tasks', JSON.stringify(state.tasks));
     },
+    
     setFilters: (state, action) => {
       state.activeFilter = action.payload.status || state.activeFilter;
       state.activePriority = action.payload.priority || state.activePriority;
@@ -114,5 +87,5 @@ export const { setLoading, setError, setTasks, addTask, updateTask, deleteTask, 
   }
 });
 
-export const { addTask, updateTask, deleteTask, setFilters } = taskSlice.actions;
+export const { setLoading, setError, setTasks, addTask, updateTask, deleteTask, setFilters } = taskSlice.actions;
 export default taskSlice.reducer;

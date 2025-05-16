@@ -1,107 +1,44 @@
-import { addDays, addWeeks, addMonths, format, isAfter, isBefore, differenceInDays } from 'date-fns';
-
 /**
- * Generates the next date based on recurrence pattern
- * @param {Date} baseDate - The starting date
- * @param {Object} recurrence - Recurrence configuration
- * @returns {Date} - The next date in the sequence
+ * Utility functions for handling recurring tasks
  */
-export const getNextDate = (baseDate, recurrence) => {
-  const date = new Date(baseDate);
-  
-  switch (recurrence.frequency) {
-    case 'daily':
-      return addDays(date, recurrence.interval || 1);
-    
-    case 'weekly':
-      return addWeeks(date, recurrence.interval || 1);
-    
-    case 'monthly':
-      return addMonths(date, recurrence.interval || 1);
-    
-    case 'custom':
-      return addDays(date, recurrence.customInterval || 1);
-    
-    default:
-      return addDays(date, 1);
-  }
-};
 
 /**
- * Generates recurring task instances based on recurrence pattern
- * @param {Object} task - The base task
+ * Generate instances of a recurring task based on its recurrence rules
+ * @param {Object} task - The task with recurrence information
+ * @param {number} instances - Number of instances to generate (default: 5)
  * @returns {Array} - Array of task instances
  */
-export const generateRecurringInstances = (task) => {
-  if (!task.recurrence) return [task];
+export function generateRecurringInstances(task, instances = 5) {
+  if (!task.isRecurring) return [task];
   
-  const instances = [task]; // Include the original task
-  const recurrence = task.recurrence;
-  const startDate = recurrence.startDate || task.dueDate;
-  const endDate = recurrence.endDate;
-  const maxInstances = 10; // Limit for performance reasons
+  const result = [];
+  const type = task.recurrenceType || 'None';
+  const interval = task.recurrenceInterval || 0;
   
-  let currentDate = new Date(startDate);
-  let instanceCount = 1;
-  
-  // Generate a reasonable number of future instances
-  while (instanceCount < maxInstances) {
-    // Stop if we've reached the end date
-    if (endDate && isAfter(currentDate, endDate)) break;
-    
-    // Calculate next occurrence date
-    const nextDate = getNextDate(currentDate, recurrence);
-    
-    // Create a new instance with the calculated date
-    const instance = {
-      ...task,
-      id: `${task.id}-${instanceCount}`,
-      dueDate: nextDate,
-      recurrence: {
-        ...recurrence,
-        parentId: task.id, // Link to parent task
-        instanceNumber: instanceCount + 1
-      }
-    };
-    
-    instances.push(instance);
-    currentDate = nextDate;
-    instanceCount++;
+  if (type === 'None' || interval <= 0) {
+    return [task];
   }
   
-  return instances;
-};
-
-/**
- * Formats recurrence pattern for display
- * @param {Object} recurrence - Recurrence configuration
- * @returns {String} - Formatted recurrence description
- */
-export const formatRecurrenceDescription = (recurrence) => {
-  if (!recurrence) return 'One-time task';
+  // Add the original task
+  result.push(task);
   
-  let description = '';
+  // Clone the original task for the base instance
+  const baseTask = {...task};
+  const baseDate = new Date(task.dueDate);
   
-  switch (recurrence.frequency) {
-    case 'daily':
-      description = recurrence.interval > 1 
-        ? `Every ${recurrence.interval} days` 
-        : 'Daily';
-      break;
-    case 'weekly':
-      description = recurrence.interval > 1 
-        ? `Every ${recurrence.interval} weeks` 
-        : 'Weekly';
-      break;
-    case 'monthly':
-      description = recurrence.interval > 1 
-        ? `Every ${recurrence.interval} months` 
-        : 'Monthly';
-      break;
-    case 'custom':
-      description = `Every ${recurrence.customInterval} days`;
-      break;
+  // Generate subsequent instances
+  for (let i = 1; i < instances; i++) {
+    const instanceDate = new Date(baseDate);
+    
+    if (type === 'Daily') instanceDate.setDate(baseDate.getDate() + (i * interval));
+    else if (type === 'Weekly') instanceDate.setDate(baseDate.getDate() + (i * 7 * interval));
+    else if (type === 'Monthly') instanceDate.setMonth(baseDate.getMonth() + (i * interval));
+    
+    // Check if we've passed the end date
+    if (task.recurrenceEndDate && instanceDate > new Date(task.recurrenceEndDate)) break;
+    
+    result.push({...baseTask, id: `${task.id}-${i}`, dueDate: instanceDate, parentTaskId: task.id});
   }
   
-  return description;
-};
+  return result;
+}

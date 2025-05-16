@@ -200,25 +200,28 @@ const Home = () => {
             initial="hidden"
             animate="visible"
             className="space-y-6"
-                <h2 className="text-2xl font-bold mb-1">Welcome back, {user?.firstName || 'there'}!</h2>
+          >
             <motion.div variants={itemVariants}>
-                  You have {taskStats.inProgress} tasks in progress and {taskStats.dueSoon} due soon
-                <h2 className="text-2xl font-bold mb-1">Welcome back, {user.name}!</h2>
-                <p className="text-surface-600 dark:text-surface-300 mb-4">
-                  You have 5 tasks in progress and 3 due today
+              <h2 className="text-2xl font-bold mb-1">Welcome back, {user?.firstName || 'there'}!</h2>
+              <p className="text-surface-600 dark:text-surface-300 mb-4">
+                You have {taskStats.inProgress} tasks in progress and {taskStats.dueSoon} due soon
+              </p>
                     <h3 className="text-lg font-medium mb-1">{taskStats.total}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                  <div className="card-neu bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10">
-                    <h3 className="text-lg font-medium mb-1">25</h3>
-                    <h3 className="text-lg font-medium mb-1">{taskStats.completed}</h3>
-                  </div>
-                  <div className="card-neu bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-800/10">
-                    <h3 className="text-lg font-medium mb-1">12</h3>
-                    <h3 className="text-lg font-medium mb-1">{taskStats.dueSoon}</h3>
-                  </div>
-                  <div className="card-neu bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/20 dark:to-amber-800/10">
-                    <h3 className="text-lg font-medium mb-1">8</h3>
-                    <p className="text-sm text-surface-600 dark:text-surface-300">Due Soon</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="card-neu bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10">
+                  <h3 className="text-lg font-medium mb-1">{taskStats.completed}</h3>
+                  <p className="text-sm text-surface-600 dark:text-surface-300">Completed</p>
+                </div>
+                <div className="card-neu bg-gradient-to-br from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-800/10">
+                  <h3 className="text-lg font-medium mb-1">{taskStats.inProgress}</h3>
+                  <p className="text-sm text-surface-600 dark:text-surface-300">In Progress</p>
+                </div>
+                <div className="card-neu bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/20 dark:to-amber-800/10">
+                  <h3 className="text-lg font-medium mb-1">{taskStats.dueSoon}</h3>
+                  <p className="text-sm text-surface-600 dark:text-surface-300">Due Soon</p>
+                </div>
+              </div>
+            </motion.div>
                   </div>
                 </div>
               </div>
