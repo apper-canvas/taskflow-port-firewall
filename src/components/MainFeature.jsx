@@ -139,6 +139,8 @@ const MainFeature = () => {
 
   const handleDeleteTask = (id, isRecurring = false) => {
     if (isRecurring) {
+      // For recurring tasks, confirm if user wants to delete all instances
+      if (confirm("Delete just this instance or all recurring instances?")) {
         // Delete all recurring instances
         apiDeleteTask(id).then(() => {
           dispatch(deleteTask({ id, deleteAll: true }));
@@ -160,14 +162,15 @@ const MainFeature = () => {
     } else {
       // Delete non-recurring task
       apiDeleteTask(id).then(() => {
-      if (confirm("Delete just this instance or all recurring instances?")) {
+        dispatch(deleteTask({ id, deleteAll: false }));
         toast.success("Task deleted successfully!");
       }).catch(error => {
         console.error('Error deleting task:', error);
         toast.error(error.message || 'Failed to delete task');
       });
-      toast.success("Task deleted successfully!");
     }
+  };
+  
   const handleStatusChange = async (taskId, newStatus) => {
     try {
       const taskToUpdate = tasks.find(t => t.id === taskId);
@@ -191,8 +194,6 @@ const MainFeature = () => {
     } catch (error) {
       console.error('Error updating task status:', error);
       toast.error(error.message || 'Failed to update task status');
-    } else {
-      toast.info(`Task status updated to ${newStatus}`);
     }
   };
 
