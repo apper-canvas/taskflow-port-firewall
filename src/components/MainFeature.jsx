@@ -135,6 +135,7 @@ const MainFeature = () => {
     } finally {
       setIsSubmitting(false);
     toast.success(`Task ${editingTask.recurrence ? 'and its recurrences ' : ''}updated successfully!`);
+    }
   };
 
   const handleDeleteTask = (id, isRecurring = false) => {
