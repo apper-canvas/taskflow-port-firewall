@@ -58,18 +58,14 @@ const MainFeature = () => {
 
   // Filter tasks based on active filters
   const getFilteredTasks = () => {
-    const filtered = tasks.filter(task => {
+    return tasks.filter(task => {
       const statusMatch = activeFilter === 'all' || task.status === activeFilter;
       const priorityMatch = activePriority === 'all' || task.priority === activePriority;
       return statusMatch && priorityMatch;
     });
-    
-    const task = {
-      ...newTask,
-      id: Date.now().toString(),
-      dueDate: new Date(newTask.dueDate)
-    };
   };
+  
+  const filteredTasks = getFilteredTasks();
 
   // Handlers for task CRUD operations
   const handleAddTask = (e) => {
@@ -264,8 +260,6 @@ const MainFeature = () => {
     { id: 'High', label: 'High' }
   ];
 
-  const filteredTasks = getFilteredTasks();
-  
   const handleSetRecurrence = (recurrenceSettings) => {
     if (editingTask) {
       setEditingTask(prev => ({ ...prev, recurrence: recurrenceSettings }));
